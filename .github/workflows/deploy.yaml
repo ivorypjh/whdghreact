@@ -1,0 +1,41 @@
+# 첫번째 이름은 작업을 구분하기 위한 용도
+name: CI/CD hdev_client to AWS S3
+
+# on 은 동작할 이벤트 - 어떤 동작(이벤트)이 발생할 때 실행할지
+on:
+  push:
+    branches:
+      - main
+
+# jobs : 실제로 수행할 동작
+jobs:
+  deploy:
+    # 어디에서 수행할지 : 보통 ubuntu 고정
+    runs-on: ubuntu-latest
+    steps: # 이름은 상관 없지만 uses 는 정확하게 작성해야 함
+      - name: 코드 체크아웃
+        uses: actions/checkout@v3
+
+      # IAM 로그인 설정 부분
+      - name: AWS IAM 사용자 설정
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+        # 실제 값이 아니라 github action 의 시크릿을 사용
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: 리액트 빌드
+        # npm install 은 패키지가 없어서 package.json 파일에서 다운로드 받는 과정
+        # npm run build 는 빌드를 수행
+        run: |
+          npm install
+          npm run build
+
+
+      - name: 빌드한 파일 S3에 업로드
+        # 빌드를 수행한 파일을 S3 에 업로드 하는 명령 수행
+        run: aws s3 sync build/ s3://${{ secrets.AWS_S3_BUCKET }} --acl public-read
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
